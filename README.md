@@ -1,2 +1,2 @@
-# dd-ev
-Simple event observer.
+# dd-visibility
+Detect document visibility.
