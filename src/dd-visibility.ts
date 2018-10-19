@@ -1,35 +1,126 @@
-let hiddenKey: string = 'hidden';
-let visibilityChangeKey: string = 'visibilitychange';
+import { HIDDEN, VISIBILITY_CHANGE } from './keys';
 
-export type VisibilityTState = 'show' | 'hide';
-export type VisibilityListener = (state: VisibilityTState) => void;
+export type VisibilityTypedCallback = (event: Event) => any;
+export type VisibilityStateListener = (
+  state: VisibilityState,
+  event: Event,
+) => any;
 
-const listeners: VisibilityListener[] = [];
-
-if (document.hidden !== undefined) {
-  hiddenKey = 'hidden';
-  visibilityChangeKey = 'visibilitychange';
-} else if ((document as any).mozHidden !== undefined) {
-  hiddenKey = 'mozHidden';
-  visibilityChangeKey = 'mozvisibilitychange';
-} else if ((document as any).msHidden !== undefined) {
-  hiddenKey = 'msHidden';
-  visibilityChangeKey = 'msvisibilitychange';
-} else if ((document as any).webkitHidden !== undefined) {
-  hiddenKey = 'webkitHidden';
-  visibilityChangeKey = 'webkitvisibilitychange';
+interface VisibilityTypedCallbacks {
+  visible: VisibilityTypedCallback[];
+  hidden: VisibilityTypedCallback[];
 }
 
-document.addEventListener(visibilityChangeKey, () => {
-  const state: VisibilityTState = (document as any)[hiddenKey] ? 'hide' : 'show';
-  listeners.forEach(listener => listener(state));
-}, false);
+export type VisibilityState = keyof VisibilityTypedCallbacks;
 
-export function addVisibilityListener(listener: VisibilityListener) {
-  listeners.push(listener);
+const states: VisibilityState[] = ['visible', 'hidden'];
+
+function getVisibilityState(): VisibilityState {
+  return document[HIDDEN] ? 'hidden' : 'visible';
 }
 
-export function removeVisibilityListener(listener: VisibilityListener) {
-  const index = listeners.indexOf(listener);
-  if (index !== -1) listeners.splice(index, 1);
+class VisibilityManager {
+  private _state: VisibilityState = getVisibilityState();
+  private _stateListeners: VisibilityStateListener[] = [];
+  private _typedCallbacks: VisibilityTypedCallbacks = {
+    visible: [],
+    hidden: [],
+  };
+
+  get state(): VisibilityState {
+    return this._state;
+  }
+
+  get isVisible(): boolean {
+    return this._state === 'visible';
+  }
+  get isHidden(): boolean {
+    return this._state === 'hidden';
+  }
+
+  constructor() {
+    document.addEventListener(
+      VISIBILITY_CHANGE,
+      e => {
+        this._setState(getVisibilityState(), e);
+      },
+      false,
+    );
+  }
+
+  private _setState(state: VisibilityState, event: Event): void {
+    if (this._state !== state) {
+      this._state = state;
+      this._triggerStateListeners(state, event);
+      this._triggerTypedCallback(state, event);
+    }
+  }
+
+  private _triggerStateListeners(state: VisibilityState, event: Event): void {
+    const listeners = this._stateListeners.slice();
+    listeners.forEach(listener => {
+      listener(state, event);
+    });
+  }
+
+  private _triggerTypedCallback(state: VisibilityState, event: Event): void {
+    const callbacks = this._typedCallbacks[state].slice();
+    callbacks.forEach(callback => {
+      callback(event);
+    });
+  }
+
+  change(listener: VisibilityStateListener): Function {
+    this._stateListeners.push(listener);
+    const remover = () => {
+      this.remove(listener, 'change');
+    };
+    return remover;
+  }
+
+  visible(callback: VisibilityTypedCallback): Function {
+    this._typedCallbacks.visible.push(callback);
+    const remover = () => {
+      this.remove(callback, 'visible');
+    };
+    return remover;
+  }
+
+  hidden(callback: VisibilityTypedCallback): Function {
+    this._typedCallbacks.hidden.push(callback);
+    const remover = () => {
+      this.remove(callback, 'hidden');
+    };
+    return remover;
+  }
+
+  remove(
+    listenerOrCallback: VisibilityStateListener | VisibilityTypedCallback,
+    targetState?: VisibilityState | 'change',
+  ): void {
+    if (!targetState || targetState === 'change') {
+      const index = this._stateListeners.indexOf(<VisibilityStateListener>(
+        listenerOrCallback
+      ));
+      if (index !== -1) {
+        this._stateListeners.splice(index, 1);
+        return;
+      }
+    }
+
+    for (const state of states) {
+      if (targetState && state !== targetState) continue;
+      const targets = this._typedCallbacks[state];
+      const index = targets.indexOf(<VisibilityTypedCallback>(
+        listenerOrCallback
+      ));
+      if (index !== -1) {
+        targets.splice(index, 1);
+        return;
+      }
+    }
+  }
 }
+
+const visibilityManager = new VisibilityManager();
+export default visibilityManager;
