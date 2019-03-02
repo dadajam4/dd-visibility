@@ -1,6 +1,6 @@
 {
   "name": "dd-visibility",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Detect HTML document visibility.",
   "main": "lib/dd-visibility.js",
   "module": "lib/dd-visibility.js",
