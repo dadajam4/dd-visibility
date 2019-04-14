@@ -1,6 +1,6 @@
 {
   "name": "dd-visibility",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Detect HTML document visibility.",
   "main": "lib/dd-visibility.js",
   "module": "lib/dd-visibility.js",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "prepublish": "npm run build",
+    "postinstall": "node postinstall.js",
     "build": "tsc -p ./tsconfig.json --rootDir ./src && rollup -c",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
